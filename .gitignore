@@ -1,0 +1,41 @@
+# CircuitPython generated files
+boot_out.txt
+settings.toml
+
+# macOS system files
+.fseventsd/
+.Trash-1000
+.Trashes
+.metadata_never_index
+.DS_Store
+
+# Windows system files
+System Volume Information/
+
+# IDE and editor files
+.vscode/
+*.swp
+*~
+
+# Backup files
+*.backup
+
+# SD card mount point
+sd/
+
+# Other game projects (keeping this repo focused on Doodle Jump)
+Snake-Game/
+Space_Impact/
+Super-Mario-Bros/
+snake_model.py
+snake_view.py
+mario_model.py
+mario_view.py
+space_model.py
+space_view.py
+generate_audio.py
+
+# Unused assets for this project
+AudioFiles/
+Fonts/
+Images/

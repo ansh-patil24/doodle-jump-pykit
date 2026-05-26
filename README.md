@@ -61,11 +61,7 @@ An implementation of Doodle Jump for the Microchip Curiosity PyKit Explorer, bui
 - **Player Size**: 16x16 pixels
 - **Screen**: 240x135 pixels
 - **Tilt Sensitivity**: Configurable deadzone (0.3) and max speed (10 pixels/frame)
-<<<<<<< HEAD
-- 
-=======
 
->>>>>>> 2fb4f84 (Added NVM implementation, fixed minor artifacting, added more comprehensive documentation)
 ## 🏗️ Code Structure
 
 The game follows an MVC (Model-View-Controller) pattern:
@@ -96,7 +92,6 @@ This project is built on the PyKit Ruler CircuitPython Module Library.
 - Built with CircuitPython and Adafruit libraries
 - Runs on Microchip Curiosity PyKit Explorer hardware
 
-## 🚀 Future Enhancements
 ## 🚀 Future Enhancements
 
 - [ ] Audio effects

@@ -1,16 +1,15 @@
 # Doodle Jump - CircuitPython Game
 
-A smooth-running implementation of Doodle Jump for the Microchip Curiosity PyKit Explorer, built with CircuitPython.
+An implementation of Doodle Jump for the Microchip Curiosity PyKit Explorer, built with CircuitPython.
 
 ![Game Preview](Sprites/doodle.bmp)
 
 ## 🎮 Game Features
 
 - **Tilt Controls**: Use the built-in IMU sensor to move left and right by tilting the device
-- **Smooth Scrolling**: Optimized platform recycling system for lag-free gameplay
 - **Score Tracking**: Keep track of your current score and high score
 - **Endless Gameplay**: Platforms are generated infinitely as you climb higher
-- **Screen Wrapping**: Move off one side of the screen to appear on the other (Pac-Man style)
+- **Screen Wrapping**: Move off one side of the screen to appear on the other
 
 ## 🔧 Hardware Requirements
 
@@ -63,16 +62,7 @@ A smooth-running implementation of Doodle Jump for the Microchip Curiosity PyKit
 - **Player Size**: 16x16 pixels
 - **Screen**: 240x135 pixels
 - **Tilt Sensitivity**: Configurable deadzone (0.3) and max speed (10 pixels/frame)
-
-## ⚡ Performance Optimizations
-
-This implementation includes several optimizations for smooth embedded gameplay:
-
-1. **Platform Recycling**: Platforms that scroll off the bottom are repositioned at the top instead of being deleted/recreated
-2. **Graphics Reuse**: Platform graphics objects are created once and their positions updated each frame (no allocation during gameplay)
-3. **Efficient Collision**: Simple AABB collision detection optimized for embedded systems
-4. **Memory Management**: Platforms cleared on game over to free memory before creating UI elements
-
+- 
 ## 🏗️ Code Structure
 
 The game follows an MVC (Model-View-Controller) pattern:
@@ -93,22 +83,6 @@ TILT_DEADZONE = 0.3     # Minimum tilt to register
 TILT_MAX = 10.0         # Maximum movement speed
 ```
 
-## 🐛 Troubleshooting
-
-**Game is laggy:**
-- Ensure you're using the optimized version with platform recycling
-- Check that graphics objects are being reused, not recreated
-
-**Tilt controls not working:**
-- Verify IMU sensor is properly connected
-- Adjust `TILT_DEADZONE` if too sensitive/insensitive
-- Check I2C connections
-
-**Memory errors:**
-- Platforms should be limited to one screen height above visible area
-- Game clears platforms before showing game over screen
-- Reduce number of initial platforms if needed
-
 ## 📜 License
 
 This project is built on the PyKit Ruler CircuitPython Module Library.
@@ -121,12 +95,10 @@ This project is built on the PyKit Ruler CircuitPython Module Library.
 
 ## 🚀 Future Enhancements
 
-- [ ] Sound effects using `audio_out` module
 - [ ] Different platform types (moving, breakable, springs)
 - [ ] Enemy obstacles
 - [ ] Power-ups
 - [ ] Multiple themes/sprites
-- [ ] Persistent high score storage (using SD card)
 
 ---
 

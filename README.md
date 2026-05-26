@@ -20,7 +20,7 @@ An implementation of Doodle Jump for the Microchip Curiosity PyKit Explorer, bui
 
 ## 📦 Installation
 
-1. Install CircuitPython 9.0+ on your PyKit Explorer board
+1. Install CircuitPython 10.x on your PyKit Explorer board
 2. Copy all files maintaining the directory structure:
    ```
    CIRCUITPY/

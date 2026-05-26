@@ -58,7 +58,7 @@ This is a platformer game for the PyKit Explorer.
 ```
 Initialize → [Read Input → Update Physics → Check Death → Render] → Repeat
                                                ↓
-                                    If Died → Save Score → Show Game Over → Reset
+                                            If Died → Save Score → Show Game Over → Reset
 ```
 
 ## NVM (Non-Volatile Memory) System

@@ -16,7 +16,7 @@ An implementation of Doodle Jump for the Microchip Curiosity PyKit Explorer, bui
 - **Microchip Curiosity PyKit Explorer** board
 - **ST7789 LCD Display** (240x135 pixels)
 - **ICM20948 9-Axis IMU Sensor** (for tilt controls)
-- **CircuitPython 9.0+**
+- **CircuitPython 10.x**
 
 ## 📦 Installation
 
@@ -41,8 +41,7 @@ An implementation of Doodle Jump for the Microchip Curiosity PyKit Explorer, bui
        ├── adafruit_imageload/
        └── adafruit_register/
    ```
-3. Reset the board or replug USB
-4. The game should start automatically!
+3. The game should start automatically!
 
 ## 🎯 How to Play
 
@@ -62,7 +61,11 @@ An implementation of Doodle Jump for the Microchip Curiosity PyKit Explorer, bui
 - **Player Size**: 16x16 pixels
 - **Screen**: 240x135 pixels
 - **Tilt Sensitivity**: Configurable deadzone (0.3) and max speed (10 pixels/frame)
+<<<<<<< HEAD
 - 
+=======
+
+>>>>>>> 2fb4f84 (Added NVM implementation, fixed minor artifacting, added more comprehensive documentation)
 ## 🏗️ Code Structure
 
 The game follows an MVC (Model-View-Controller) pattern:
@@ -94,7 +97,11 @@ This project is built on the PyKit Ruler CircuitPython Module Library.
 - Runs on Microchip Curiosity PyKit Explorer hardware
 
 ## 🚀 Future Enhancements
+## 🚀 Future Enhancements
 
+- [ ] Audio effects
+- [ ] Difficulty scaling with player score
+- [ ] Loading Screen
 - [ ] Different platform types (moving, breakable, springs)
 - [ ] Enemy obstacles
 - [ ] Power-ups

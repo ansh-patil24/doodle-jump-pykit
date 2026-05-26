@@ -1,8 +1,45 @@
+"""
+================================================================================
+DOODLE JUMP - PyKit Explorer Game
+================================================================================
+
+A smooth-running platformer game with tilt controls for Microchip PyKit Explorer
+
+GAME MECHANICS:
+- Automatic jumping - player continuously bounces
+- Tilt device left/right to control horizontal movement
+- Land on platforms to keep climbing higher
+- Fall off bottom = game over
+- High score saved to NVM (persists across power cycles)
+
+ARCHITECTURE: Model-View-Controller (MVC)
+- Doodle_Jump_logic: Game state, physics, collisions (MODEL)
+- display: LCD rendering and graphics (VIEW)
+- Controller: IMU sensor input (CONTROLLER)
+
+PERFORMANCE OPTIMIZATIONS:
+- Platform recycling: Reuse objects instead of create/destroy
+- Graphics reuse: Update positions, don't recreate rectangles  
+- Batched score updates: Update every 5 points to prevent flicker
+- NVM write once: Save high score only on death to avoid lag
+
+HARDWARE REQUIREMENTS:
+- Microchip Curiosity PyKit Explorer
+- ST7789 LCD Display (240x135)
+- ICM20948 IMU Sensor
+- CircuitPython 9.0+
+
+For detailed documentation, see CODE_DOCUMENTATION.md
+================================================================================
+"""
+
 import pykit_explorer
 from imu_sensor import IMUSensor
 from audio_out import AudioOutput
 from pwm_out import PWMOutput
 from lcd_display import LCDDisplay, Colors
+import struct
+import microcontroller
 import terminalio
 import gc
 import time
@@ -26,6 +63,14 @@ TILT_MAX = 10.0
 # Platform spacing
 PLATFORM_SPACING = 35
 
+# NVM (Non-Volatile Memory) layout for persisting the high score across
+# power cycles.  The first 4 bytes are a magic marker ("HSv1") so we can
+# detect uninitialised NVM.  The next 2 bytes are the high score as an
+# unsigned 16-bit integer (max 65535).
+_NVM_MAGIC = b"HSv1"
+_NVM_FMT   = "<4sH"                       # little-endian: 4-char + uint16
+_NVM_SIZE  = struct.calcsize(_NVM_FMT)     # = 6 bytes
+
 
 class Doodle_Jump_logic :
    def __init__(self):
@@ -36,6 +81,7 @@ class Doodle_Jump_logic :
       self.score = 0
       self.high_score = 0
       self.camera_y = 0
+      self.high_score = _load_high_score()
    
    def reset(self):
       self.player_x = SCREEN_W // 2 - PLATFORM_W // 2
@@ -140,13 +186,17 @@ class display :
       self.lcd = LCDDisplay()
       self.lcd.backlight_on()
       self.group, self.palatte = self.lcd.make_group(Colors.BLACK)
-      self.score_label = self.lcd.add_label(self.group, text="0", x = SCREEN_W - 10, y = 5, color = 0xFFFFFF, scale = 2)
+      self.score_label = self.lcd.add_label(self.group, text="0", x = SCREEN_W - 5, y = 5, color = 0xFFFFFF, scale = 2)
+      # Set right-aligned anchor point for score to avoid repositioning
+      self.score_label.anchor_point = (1.0, 0.0)
       self.player_group = self.lcd.load_sprite("/Sprites/doodle.bmp", 16, 16, x=0, y=0)
       self.group.append(self.player_group)
       # Track platforms by index, not coordinates
       self.platform_shapes = []
       # Initialize platform graphics (will match model platform count)
       self.platform_shapes_initialized = False
+      # Track last displayed score to avoid unnecessary updates
+      self.last_displayed_score = 0
 
    def render(self, model):
       # Update player position
@@ -167,10 +217,11 @@ class display :
                self.platform_shapes[i].x = int(px)
                self.platform_shapes[i].y = int(py)
 
-      # Update score
-      self.score_label.text = str(model.score)
-      text_width = len(self.score_label.text) * 12
-      self.score_label.x = SCREEN_W - text_width - 5
+      # Update score text only when it changes by 5+ to reduce flicker
+      score_diff = abs(model.score - self.last_displayed_score)
+      if score_diff >= 5 or model.score == 0:
+         self.last_displayed_score = model.score
+         self.score_label.text = str(model.score)
    
    def show_game_over(self, score, high_score):
       # Clear all platforms
@@ -178,6 +229,8 @@ class display :
          self.group.remove(shape)
       self.platform_shapes.clear()
       self.platform_shapes_initialized = False
+      # Reset score tracker for next game
+      self.last_displayed_score = 0
 
       black_background = self.lcd.draw_rect(0,0, SCREEN_W, SCREEN_H, fill=0x000000)
       self.group.append(black_background)
@@ -209,10 +262,41 @@ def main():
       model.move_horizontal(dx)
       event = model.jump()
       if event == "died":
+         # Save high score to NVM only once when game ends (before game over screen)
+         _save_high_score(model.high_score)
          view.show_game_over(model.score, model.high_score)
          model.reset()
       view.render(model)
       time.sleep(0.05)
+
+def _nvm_available():
+   """Check whether this board has Non-Volatile Memory support."""
+   return getattr(microcontroller, "nvm", None) is not None
+
+def _load_high_score():
+   """Read the high score from NVM on startup.
+      If NVM is uninitialised (no magic marker) or unavailable,
+      defaults to 0.
+   """
+   if not _nvm_available() or len(microcontroller.nvm) < _NVM_SIZE:
+      return 0
+   raw = bytes(microcontroller.nvm[0:_NVM_SIZE])
+   try:
+      magic, hs = struct.unpack(_NVM_FMT, raw)
+      return hs if magic == _NVM_MAGIC else 0
+   except Exception:
+      return 0
+
+
+def _save_high_score(high_score):
+   """Write the current high score to NVM so it survives power cycles."""
+   if not _nvm_available() or len(microcontroller.nvm) < _NVM_SIZE:
+      return
+   try:
+      microcontroller.nvm[0:_NVM_SIZE] = struct.pack(
+         _NVM_FMT, _NVM_MAGIC, min(high_score, 65535))
+   except Exception:
+      pass
 
 if __name__ == "__main__":
    main()

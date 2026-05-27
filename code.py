@@ -27,7 +27,7 @@ HARDWARE REQUIREMENTS:
 - Microchip Curiosity PyKit Explorer
 - ST7789 LCD Display (240x135)
 - ICM20948 IMU Sensor
-- CircuitPython 9.0+
+- CircuitPython 10.x
 
 For detailed documentation, see CODE_DOCUMENTATION.md
 ================================================================================

@@ -38,6 +38,7 @@ from imu_sensor import IMUSensor
 from audio_out import AudioOutput
 from pwm_out import PWMOutput
 from lcd_display import LCDDisplay, Colors
+from audiocore import WaveFile
 import struct
 import microcontroller
 import terminalio
@@ -72,6 +73,80 @@ _NVM_FMT   = "<4sH"                       # little-endian: 4-char + uint16
 _NVM_SIZE  = struct.calcsize(_NVM_FMT)     # = 6 bytes
 
 
+
+class _AudioManager:
+    """Manage non-blocking WAV sound-effect playback with rate limiting.
+    
+    Opens and closes WAV files on each play to keep RAM usage low.
+    Re-initializes the AudioOut device every 50 plays to prevent memory
+    fragmentation on CircuitPython's heap.
+    """
+    _SOUNDS = {
+        "jump": "/AudioFiles/doodle_jump.wav",
+        "gameover": "/AudioFiles/doodle_jump_gameover.wav",
+    }
+    _MIN_INTERVAL = 0.08  # minimum seconds between plays (rate limiter)
+    _REINIT_EVERY = 50    # re-create AudioOut every N plays
+    
+    def __init__(self):
+        self.enabled = False
+        self._audio = None
+        self._file = None
+        self._wave = None
+        self._last_t = 0.0
+        self._count = 0
+        
+        try:
+            self._audio = AudioOutput()
+            self.enabled = True
+        except Exception as e:
+            print(f"Audio init failed: {e}")
+    
+    def play(self, sound_name):
+        """Play a sound effect with rate limiting and cleanup."""
+        if not self.enabled or sound_name not in self._SOUNDS:
+            return
+        
+        now = time.time()
+        if now - self._last_t < self._MIN_INTERVAL:
+            return  # Rate limit: too soon since last play
+        
+        try:
+            self._cleanup()
+            self._count += 1
+            
+            # Periodic reinitialization to prevent heap fragmentation
+            if self._count % self._REINIT_EVERY == 0:
+                try:
+                    self._audio.deinit()
+                    self._audio = AudioOutput()
+                except Exception:
+                    pass
+            
+            self._file = open(self._SOUNDS[sound_name], "rb")
+            self._wave = WaveFile(self._file)
+            self._audio._audio.play(self._wave)
+            self._last_t = now
+        except Exception as e:
+            print(f"Audio error ({sound_name}): {e}")
+            self._cleanup()
+    
+    def _cleanup(self):
+        """Clean up audio resources."""
+        try:
+            if self._audio and self._audio._audio.playing:
+                self._audio._audio.stop()
+        except Exception:
+            pass
+        try:
+            if self._file is not None:
+                self._file.close()
+        except Exception:
+            pass
+        self._file = None
+        self._wave = None
+
+
 class Doodle_Jump_logic :
    def __init__(self):
       self.player_x = 120
@@ -82,7 +157,8 @@ class Doodle_Jump_logic :
       self.high_score = 0
       self.camera_y = 0
       self.high_score = _load_high_score()
-   
+      # Audio setup with robust AudioManager
+      self._audio_manager = _AudioManager()
    def reset(self):
       self.player_x = SCREEN_W // 2 - PLATFORM_W // 2
       self.player_y = SCREEN_H - 50
@@ -258,17 +334,28 @@ def main():
    view = display()
 
    while True: 
+      # Phase 1: Input
       dx = controller.get_horizontal_movement()
       model.move_horizontal(dx)
+      
+      # Phase 2: Game logic (CPU-intensive)
       event = model.jump()
-      if event == "died":
-         # Save high score to NVM only once when game ends (before game over screen)
+      
+      # Phase 3: Audio (deferred after logic completes)
+      if event == "bounced":
+         model._audio_manager.play("jump")
+      elif event == "died":
+         model._audio_manager.play("gameover")
+         # Save high score to NVM only once when game ends
          _save_high_score(model.high_score)
          view.show_game_over(model.score, model.high_score)
          model.reset()
+      
+      # Phase 4: Rendering
       view.render(model)
+      
+      # Phase 5: Frame pacing
       time.sleep(0.05)
-
 def _nvm_available():
    """Check whether this board has Non-Volatile Memory support."""
    return getattr(microcontroller, "nvm", None) is not None
@@ -300,3 +387,5 @@ def _save_high_score(high_score):
 
 if __name__ == "__main__":
    main()
+
+#si_powerup if i add special abilities/platforms

@@ -35,6 +35,8 @@ For detailed documentation, see CODE_DOCUMENTATION.md
 
 import pykit_explorer
 from imu_sensor import IMUSensor
+import board  # Provides board.D3 for button access
+import digitalio  # For DigitalInOut button control
 from audio_out import AudioOutput
 from pwm_out import PWMOutput
 from lcd_display import LCDDisplay, Colors
@@ -42,6 +44,7 @@ from audiocore import WaveFile
 import struct
 import microcontroller
 import terminalio
+import displayio  # For display groups and graphics
 import gc
 import time
 import random
@@ -71,6 +74,16 @@ PLATFORM_SPACING = 35
 _NVM_MAGIC = b"HSv1"
 _NVM_FMT   = "<4sH"                       # little-endian: 4-char + uint16
 _NVM_SIZE  = struct.calcsize(_NVM_FMT)     # = 6 bytes
+
+# ============================================================================
+# GAME STATE CONSTANTS
+# ============================================================================
+# Game operates as a state machine with two primary states:
+# - STATE_MENU: Start screen showing title, instructions, high score
+# - STATE_PLAYING: Active gameplay where player controls bouncing sprite
+# ============================================================================
+STATE_MENU = 0       # Start screen, waiting for button press
+STATE_PLAYING = 1    # Active gameplay
 
 
 
@@ -247,6 +260,11 @@ class Doodle_Jump_logic :
 class Controller : 
    def __init__(self):
       self.imu = IMUSensor()
+      
+      # D3 button for starting game (active-LOW with pull-up)
+      self._btn = digitalio.DigitalInOut(board.D3)
+      self._btn.direction = digitalio.Direction.INPUT
+      self._btn.pull = digitalio.Pull.UP
 
    def get_horizontal_movement(self):
       ax, ay, az = self.imu.acceleration
@@ -257,8 +275,12 @@ class Controller :
 
       return dx
 
+
+   def button_pressed(self):
+      """Check if D3 button is pressed (active-LOW inverted)."""
+      return not self._btn.value
 class display : 
-   def __init__(self): 
+   def __init__(self, model): 
       self.lcd = LCDDisplay()
       self.lcd.backlight_on()
       self.group, self.palatte = self.lcd.make_group(Colors.BLACK)
@@ -273,6 +295,57 @@ class display :
       self.platform_shapes_initialized = False
       # Track last displayed score to avoid unnecessary updates
       self.last_displayed_score = 0
+
+
+      # ========================================================================
+      # START SCREEN INITIALIZATION
+      # ========================================================================
+      # Separate group for start screen that can be shown/hidden easily
+      self._start_group = displayio.Group()
+      self.group.append(self._start_group)
+
+      # Plain dark background (not frozen game)
+      start_bg_bmp = displayio.Bitmap(SCREEN_W, SCREEN_H, 1)
+      start_bg_pal = displayio.Palette(1)
+      start_bg_pal[0] = 0x000000  # Dark blue-gray
+      self._start_group.append(displayio.TileGrid(start_bg_bmp, pixel_shader=start_bg_pal))
+
+      # Title
+      start_title = self.lcd.add_label(self._start_group, text="DOODLE JUMP",
+         x=SCREEN_W // 2, y=25, color=0x00FF00, scale=3)
+      start_title.anchor_point = (0.5, 0.5)
+
+      # Doodle sprite
+      start_sprite = self.lcd.load_sprite("/Sprites/doodle.bmp", 16, 16,
+         x=SCREEN_W//2 - 8, y=45)
+      self._start_group.append(start_sprite)
+
+      # Instructions
+      instructions = self.lcd.add_label(self._start_group, text="TILT : MOVE",
+         x=SCREEN_W // 2, y=75, color=0x88AACC, scale=1)
+      instructions.anchor_point = (0.5, 0.5)
+
+      # High score
+      self._start_high_score_label = self.lcd.add_label(self._start_group,
+         text=f"HIGH SCORE: {model.high_score}",
+         x=SCREEN_W // 2, y=95, color=0xFFFF00, scale=2)
+      self._start_high_score_label.anchor_point = (0.5, 0.5)
+
+      # Blinking prompt
+      self._start_prompt = self.lcd.add_label(self._start_group,
+         text="PRESS BUTTON TO START", x=SCREEN_W // 2, y=115,
+         color=0xFFFF00, scale=1)
+      self._start_prompt.anchor_point = (0.5, 0.5)
+
+      # Credit line
+      credit = self.lcd.add_label(self._start_group,
+         text="PyKit Explorer Edition", x=SCREEN_W // 2, y=128,
+         color=0x445566, scale=1)
+      credit.anchor_point = (0.5, 0.5)
+
+      # Blink counter
+      self._start_blink_counter = 0
+      self._start_group.hidden = True  # Start hidden
 
    def render(self, model):
       # Update player position
@@ -299,6 +372,39 @@ class display :
          self.last_displayed_score = model.score
          self.score_label.text = str(model.score)
    
+   def slide_start_screen_up(self):
+      """Slide entire loading screen up off screen over 0.5 seconds.
+      Background, sprite, and all text move together.
+      """
+      import time
+      for step in range(10):
+         self._start_group.y -= 15  # Slide text up
+         time.sleep(0.05)
+   
+   def show_start_screen(self):
+      """Show the start/loading screen."""
+      self._start_group.y = 0  # Reset position after slide animation
+      self._start_group.hidden = False
+
+   def hide_start_screen(self):
+      """Hide the start screen."""
+      self._start_group.hidden = True
+
+   def blink_start_prompt(self):
+      """Animate the start prompt by blinking it."""
+      self._start_blink_counter += 1
+      if self._start_blink_counter >= 60:
+         self._start_blink_counter = 0
+      # Toggle between yellow (visible) and dark blue (hidden)
+      if self._start_blink_counter < 30:
+         self._start_prompt.color = 0xFFFF00
+      else:
+         self._start_prompt.color = 0x000020
+
+   def update_start_high_score(self, score):
+      """Update high score on start screen."""
+      self._start_high_score_label.text = f"HIGH SCORE: {score}"
+
    def show_game_over(self, score, high_score):
       # Clear all platforms
       for shape in self.platform_shapes:
@@ -328,28 +434,57 @@ def main():
    gc.collect()
    print(f"Free RAM at start: {gc.mem_free()} bytes")
 
+   
    model = Doodle_Jump_logic()
    model.reset()
    controller = Controller()
-   view = display()
-
+   view = display(model)  # Pass model for high score
+   
+   # Start in menu state
+   state = STATE_MENU
+   view.show_start_screen()
+   
    while True: 
+      # ==================================================================
+      # STATE: MENU
+      # ==================================================================
+      if state == STATE_MENU:
+         # Plain background with text overlay
+         view.blink_start_prompt()
+         
+         if controller.button_pressed():
+            print("Starting game!")
+            model.reset()
+            view.hide_start_screen()  # Instant transition
+            state = STATE_PLAYING
+            time.sleep(0.2)  # Debounce
+            continue
+         
+         time.sleep(0.05)
+         continue
+      
+      # ==================================================================
+      # STATE: PLAYING
+      # ==================================================================
       # Phase 1: Input
       dx = controller.get_horizontal_movement()
       model.move_horizontal(dx)
       
-      # Phase 2: Game logic (CPU-intensive)
+      # Phase 2: Game logic
       event = model.jump()
       
-      # Phase 3: Audio (deferred after logic completes)
+      # Phase 3: Audio (deferred)
       if event == "bounced":
          model._audio_manager.play("jump")
       elif event == "died":
          model._audio_manager.play("gameover")
-         # Save high score to NVM only once when game ends
          _save_high_score(model.high_score)
          view.show_game_over(model.score, model.high_score)
+         view.update_start_high_score(model.high_score)
          model.reset()
+         view.show_start_screen()
+         state = STATE_MENU
+         continue
       
       # Phase 4: Rendering
       view.render(model)
@@ -374,7 +509,6 @@ def _load_high_score():
    except Exception:
       return 0
 
-
 def _save_high_score(high_score):
    """Write the current high score to NVM so it survives power cycles."""
    if not _nvm_available() or len(microcontroller.nvm) < _NVM_SIZE:
@@ -387,5 +521,3 @@ def _save_high_score(high_score):
 
 if __name__ == "__main__":
    main()
-
-#si_powerup if i add special abilities/platforms

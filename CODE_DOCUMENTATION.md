@@ -11,6 +11,7 @@ This is a platformer game for the PyKit Explorer.
   - Player physics (gravity, velocity, position)
   - Platform management and recycling
   - Collision detection
+  - Audio effects
   - Score calculation
   - Camera scrolling logic
 

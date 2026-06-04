@@ -94,7 +94,6 @@ This project is built on the PyKit Ruler CircuitPython Module Library.
 
 ## 🚀 Future Enhancements
 
-- [ ] Audio effects
 - [ ] Difficulty scaling with player score
 - [ ] Loading Screen
 - [ ] Different platform types (moving, breakable, springs)

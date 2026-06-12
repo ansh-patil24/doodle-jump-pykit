@@ -42,23 +42,23 @@ import gc
 import time
 import random
 
-# Constants
-GRAVITY = 0.4
-JUMP_VELOCITY = -8
-# Screen Size
-SCREEN_W = 240
-SCREEN_H = 135
-# Player size
-PLAYER_W = 16
-PLAYER_H = 16
-# Platform Size
-PLATFORM_W = 40
-PLATFORM_H = 6
-# Tilt Config
+# Constants - SCALED FOR 64x32 RGB MATRIX
+GRAVITY = 0.3  # Slightly reduced for smaller screen
+JUMP_VELOCITY = -6  # Reduced from -8
+  # Screen Size
+SCREEN_W = 64  # Changed from 240
+SCREEN_H = 32  # Changed from 135
+  # Player size
+PLAYER_W = 4   # Small sprite size (4x4 pixels)
+PLAYER_H = 4   # Small sprite size
+  # Platform Size
+PLATFORM_W = 12  # Smaller platforms for 64x32 display
+PLATFORM_H = 2   # Height unchanged
+  # Tilt Config (not used with button controls)
 TILT_DEADZONE = 0.3
 TILT_MAX = 10.0
-# Platform spacing
-PLATFORM_SPACING = 35
+  # Platform spacing
+PLATFORM_SPACING = 7  # Reduced spacing = more platforms 
 
 # NVM (Non-Volatile Memory) layout for persisting the high score across
 # power cycles.  The first 4 bytes are a magic marker ("HSv1") so we can

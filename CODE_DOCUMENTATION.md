@@ -16,15 +16,17 @@ The game is split into three separate files for maintainability and clarity:
   - Collision detection
   - Score calculation and high score tracking
   - Camera scrolling logic
+  - Progressive difficulty scaling
   - Triggering audio events through view's audio manager
 - **Dependencies**: 
   - Receives audio manager reference from view
   - Uses NVM helper functions for persistent storage
 - **Key Methods**:
+  - `get_difficulty_params()`: Calculate gravity, jump velocity, sensitivity, and platform width based on score
   - `reset()`: Initialize game state for new game
   - `jump()`: Handle physics, scrolling, collisions - returns event ("bounced", "died", or None)
   - `move_horizontal(dx)`: Move player left/right with screen wrapping
-  - `player_lands_on(x, y)`: Collision detection for platform landing
+  - `player_lands_on(x, y, platform_w)`: Collision detection for platform landing with dynamic width
 
 ### View (`display` class in `doodle_jump_view.py`)
 - **Purpose**: Handles all visual output and audio playback
@@ -144,9 +146,18 @@ This design allows the view to own audio resources while the model triggers play
 
 All constants are defined in `code.py`:
 
-### Physics
-- `GRAVITY = 0.4`: Acceleration per frame (pixels/frame²)
-- `JUMP_VELOCITY = -8`: Initial bounce velocity (negative = upward)
+### Difficulty Scaling (Dynamic)
+The game uses progressive difficulty that scales with score:
+
+- `BASE_GRAVITY = 0.484`: Starting gravity (10% faster than original 0.4)
+- `MAX_GRAVITY = 0.9`: Gravity at max difficulty
+- `BASE_JUMP_VELOCITY = -8.8`: Starting jump velocity (10% faster than original -8)
+- `MAX_JUMP_VELOCITY = -12`: Jump velocity at max difficulty
+- `MAX_DIFFICULTY_SCORE = 1000`: Score at which max difficulty is reached
+- `BASE_PLATFORM_W = 40`: Starting platform width
+- `MIN_PLATFORM_W = 25`: Platform width at max difficulty
+
+The difficulty uses an ease-out curve (`factor ** 0.7`) for smooth progression - fast ramp-up early, gradual approach to max.
 
 ### Screen  
 - `SCREEN_W = 240`: Display width
@@ -157,13 +168,14 @@ All constants are defined in `code.py`:
 - `PLAYER_H = 16`: Sprite height
 
 ### Platforms
-- `PLATFORM_W = 40`: Width in pixels
+- `PLATFORM_W = 40`: Base width in pixels (used for generation)
 - `PLATFORM_H = 6`: Height in pixels  
 - `PLATFORM_SPACING = 35`: Vertical gap between platforms
 
 ### Controls
 - `TILT_DEADZONE = 0.3`: Minimum tilt to register (prevents drift)
 - `TILT_MAX = 10.0`: Maximum movement speed (pixels/frame)
+- Control sensitivity scales from 1.0x to 1.5x based on difficulty
 
 ### Game States
 - `STATE_MENU = 0`: Start/menu screen
@@ -438,17 +450,22 @@ print(f"Frame time: {(time.monotonic() - start) * 1000:.1f}ms")
 
 ## Common Modifications
 
-### Change Difficulty
+### Change Difficulty Scaling
 ```python
-# Make it easier
-GRAVITY = 0.3           # Slower falling
-JUMP_VELOCITY = -9      # Higher jumps
-PLATFORM_SPACING = 30   # Platforms closer together
+# Slower difficulty ramp-up
+MAX_DIFFICULTY_SCORE = 2000  # Takes longer to reach max difficulty
 
-# Make it harder
-GRAVITY = 0.5           # Faster falling
-JUMP_VELOCITY = -7      # Lower jumps
-PLATFORM_SPACING = 40   # Platforms farther apart
+# Faster difficulty ramp-up
+MAX_DIFFICULTY_SCORE = 500   # Reaches max difficulty quickly
+
+# Adjust max difficulty
+MAX_GRAVITY = 1.2            # Even faster at max
+MAX_JUMP_VELOCITY = -14      # Even faster jumps at max
+MIN_PLATFORM_W = 20          # Even smaller platforms at max
+
+# Adjust starting difficulty
+BASE_GRAVITY = 0.4           # Original slower start
+BASE_JUMP_VELOCITY = -8      # Original slower start
 ```
 
 ### Add Different Platform Types
@@ -498,15 +515,50 @@ if self.player_x > SCREEN_W - PLAYER_W:
 3. **Simple Physics**: No acceleration/deceleration for horizontal movement
 4. **Audio Limited**: Only 2 sound effects (jump, gameover)
 5. **Single Player Only**: No multiplayer or leaderboards
-6. **Fixed Difficulty**: Game doesn't get harder as score increases
 
 ## Future Enhancement Ideas
 
 1. **Power-ups**: Springs for extra jump, shields, double jump
 2. **Enemy Platforms**: Moving platforms, disappearing platforms
-3. **Progressive Difficulty**: Increase GRAVITY or PLATFORM_SPACING as score increases
+3. ~~**Progressive Difficulty**: Increase GRAVITY or PLATFORM_SPACING as score increases~~ ✅ Implemented!
 4. **Visual Effects**: Particle effects, background parallax
 5. **More Sounds**: Background music, special platform sounds
 6. **Touch Controls**: Use touchscreen instead of/in addition to tilt
 7. **Themes**: Different visual styles (space, underwater, etc.)
 8. **Achievements**: Track statistics beyond just high score
+
+## Progressive Difficulty System
+
+The game now features progressive difficulty that scales with score:
+
+### How It Works
+1. `get_difficulty_params()` calculates current values based on score
+2. Uses an ease-out curve (`factor ** 0.7`) for smooth progression
+3. Fast ramp-up in early game, gradual approach to max difficulty
+
+### What Scales
+| Parameter | At Score 0 | At Score 1000+ |
+|-----------|------------|----------------|
+| Gravity | 0.484 | 0.9 |
+| Jump Velocity | -8.8 | -12 |
+| Platform Width | 40px | 25px |
+| Control Sensitivity | 1.0x | 1.5x |
+
+### Implementation
+```python
+def get_difficulty_params(self):
+    factor = min(1.0, self.score / MAX_DIFFICULTY_SCORE)
+    eased = factor ** 0.7  # Ease-out curve
+    
+    gravity = BASE_GRAVITY + (MAX_GRAVITY - BASE_GRAVITY) * eased
+    jump_vel = BASE_JUMP_VELOCITY + (MAX_JUMP_VELOCITY - BASE_JUMP_VELOCITY) * eased
+    sensitivity = 1.0 + 0.5 * eased
+    platform_w = BASE_PLATFORM_W - (BASE_PLATFORM_W - MIN_PLATFORM_W) * eased
+    
+    return gravity, jump_vel, sensitivity, int(platform_w)
+```
+
+The main loop applies these values:
+- Gravity and jump velocity are used in `jump()` for physics
+- Sensitivity multiplies the controller input
+- Platform width is used for both collision detection and rendering

@@ -42,9 +42,12 @@ import gc
 import time
 import random
 
-# Constants
-GRAVITY = 0.4
-JUMP_VELOCITY = -8
+# Difficulty scaling
+BASE_GRAVITY = 0.484
+MAX_GRAVITY = 0.9
+BASE_JUMP_VELOCITY = -8.8
+MAX_JUMP_VELOCITY = -12
+MAX_DIFFICULTY_SCORE = 1000
 # Screen Size
 SCREEN_W = 240
 SCREEN_H = 135
@@ -59,6 +62,8 @@ TILT_DEADZONE = 0.3
 TILT_MAX = 10.0
 # Platform spacing
 PLATFORM_SPACING = 35
+BASE_PLATFORM_W = 40
+MIN_PLATFORM_W = 25
 
 # NVM (Non-Volatile Memory) layout for persisting the high score across
 # power cycles.  The first 4 bytes are a magic marker ("HSv1") so we can
@@ -85,6 +90,7 @@ class Doodle_Jump_logic:
         self.player_y = 100
         self.velocity_y = 0
         self.platforms = []
+        self.platform_w = BASE_PLATFORM_W
         self.score = 0
         self.high_score = 0
         self.camera_y = 0
@@ -92,10 +98,21 @@ class Doodle_Jump_logic:
         # Audio manager passed from view
         self._audio_manager = audio_manager
 
+    def get_difficulty_params(self):
+        factor = min(1.0, self.score / MAX_DIFFICULTY_SCORE)
+        eased = factor ** 0.7
+
+        gravity = BASE_GRAVITY + (MAX_GRAVITY - BASE_GRAVITY) * eased
+        jump_vel = BASE_JUMP_VELOCITY + (MAX_JUMP_VELOCITY - BASE_JUMP_VELOCITY) * eased
+        sensitivity = 1.0 + 0.5 * eased
+        platform_w = BASE_PLATFORM_W - (BASE_PLATFORM_W - MIN_PLATFORM_W) * eased
+
+        return gravity, jump_vel, sensitivity, int(platform_w)
+    
     def reset(self):
         self.player_x = SCREEN_W // 2 - PLATFORM_W // 2
         self.player_y = SCREEN_H - 50
-        self.velocity_y = JUMP_VELOCITY
+        self.velocity_y = BASE_JUMP_VELOCITY
         self.score = 0
         self.camera_y = 0
 
@@ -111,7 +128,8 @@ class Doodle_Jump_logic:
 
     def jump(self):
         event = None
-        self.velocity_y += GRAVITY
+        current_gravity, current_jump_velocity, _, platform_w = self.get_difficulty_params()
+        self.velocity_y += current_gravity
         self.player_y += self.velocity_y
 
         SCROLL_THRESHOLD = SCREEN_H // 4
@@ -142,8 +160,9 @@ class Doodle_Jump_logic:
 
         if self.velocity_y > 0:
             for platform_x, platform_y in self.platforms:
-                if self.player_lands_on(platform_x, platform_y):
-                    self.velocity_y = JUMP_VELOCITY
+                if self.player_lands_on(platform_x, platform_y, platform_w):
+                    self.velocity_y = current_jump_velocity
+                    self.platform_w = platform_w
                     event = "bounced"
                     break
 
@@ -152,14 +171,13 @@ class Doodle_Jump_logic:
 
         return event
 
-    def player_lands_on(self, platform_x, platform_y):
+    def player_lands_on(self, platform_x, platform_y, platform_w):
         player_feet = self.player_y + PLAYER_H
-
         player_left = self.player_x
         player_right = self.player_x + PLAYER_W
 
         platform_left = platform_x
-        platform_right = platform_x + PLATFORM_W
+        platform_right = platform_x + platform_w
 
         overlaps_horizontally = (player_right > platform_left and
                                 player_left < platform_right)
@@ -252,7 +270,8 @@ def main():
         # ==================================================================
         # Phase 1: Input
         dx = controller.get_horizontal_movement()
-        model.move_horizontal(dx)
+        _, _, sensitivity, _ = model.get_difficulty_params()
+        model.move_horizontal(int(dx * sensitivity))
 
         # Phase 2: Game logic
         event = model.jump()

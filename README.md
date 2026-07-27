@@ -8,6 +8,7 @@ An implementation of Doodle Jump for the Microchip Curiosity PyKit Explorer, bui
 
 - **Tilt Controls**: Use the built-in IMU sensor to move left and right by tilting the device
 - **Score Tracking**: Keep track of your current score and high score (persists across power cycles!)
+- **Progressive Difficulty**: Game gets faster and harder as your score increases!
 - **Endless Gameplay**: Platforms are generated infinitely as you climb higher
 - **Screen Wrapping**: Move off one side of the screen to appear on the other
 - **Start Screen**: Menu with high score display and button to start
@@ -61,13 +62,24 @@ An implementation of Doodle Jump for the Microchip Curiosity PyKit Explorer, bui
 
 ## 🎨 Game Mechanics
 
-- **Gravity**: 0.4 pixels/frame²
-- **Jump Velocity**: -8 pixels/frame (upward)
+### Base Stats (at score 0)
+- **Gravity**: 0.484 pixels/frame²
+- **Jump Velocity**: -8.8 pixels/frame (upward)
+- **Platform Width**: 40 pixels
+- **Control Sensitivity**: 1.0x
+
+### Max Difficulty (at score 1000+)
+- **Gravity**: 0.9 pixels/frame²
+- **Jump Velocity**: -12 pixels/frame (upward)
+- **Platform Width**: 25 pixels
+- **Control Sensitivity**: 1.5x
+
+### Fixed Constants
 - **Platform Spacing**: 35 pixels apart vertically
-- **Platform Size**: 40x6 pixels (green rectangles)
+- **Platform Height**: 6 pixels
 - **Player Size**: 16x16 pixels
 - **Screen**: 240x135 pixels
-- **Tilt Sensitivity**: Configurable deadzone (0.3) and max speed (10 pixels/frame)
+- **Tilt Deadzone**: 0.3 (minimum tilt to register)
 
 ## 🏗️ Code Structure
 
@@ -104,11 +116,21 @@ For detailed architecture and implementation details, see [CODE_DOCUMENTATION.md
 You can adjust these in `code.py`:
 
 ```python
-GRAVITY = 0.4           # Downward acceleration
-JUMP_VELOCITY = -8      # Initial jump speed
-PLATFORM_SPACING = 35   # Distance between platforms
-TILT_DEADZONE = 0.3     # Minimum tilt to register
-TILT_MAX = 10.0         # Maximum movement speed
+# Difficulty scaling
+BASE_GRAVITY = 0.484        # Starting gravity (10% faster than original)
+MAX_GRAVITY = 0.9           # Gravity at max difficulty
+BASE_JUMP_VELOCITY = -8.8   # Starting jump velocity
+MAX_JUMP_VELOCITY = -12     # Jump velocity at max difficulty
+MAX_DIFFICULTY_SCORE = 1000 # Score at which max difficulty is reached
+
+# Platform scaling
+BASE_PLATFORM_W = 40        # Starting platform width
+MIN_PLATFORM_W = 25         # Platform width at max difficulty
+
+# Fixed constants
+PLATFORM_SPACING = 35       # Distance between platforms
+TILT_DEADZONE = 0.3         # Minimum tilt to register
+TILT_MAX = 10.0             # Maximum movement speed
 ```
 
 ## 🎵 Audio System
@@ -148,7 +170,7 @@ This project is built on the PyKit Ruler CircuitPython Module Library.
 
 ## 🚀 Future Enhancements
 
-- [ ] Difficulty scaling with player score
+- [x] ~~Difficulty scaling with player score~~ ✅ Implemented!
 - [ ] Different platform types (moving, breakable, springs)
 - [ ] Enemy obstacles
 - [ ] Power-ups

@@ -109,6 +109,7 @@ class display:
         self.platform_shapes_initialized = False
         # Track last displayed score to avoid unnecessary updates
         self.last_displayed_score = 0
+        self.last_platform_w = 40
 
         # ========================================================================
         # START SCREEN INITIALIZATION
@@ -171,22 +172,34 @@ class display:
         # Initialize platform graphics on first render
         if not self.platform_shapes_initialized:
             for px, py in model.platforms:
-                platform = self.lcd.draw_rect(int(px), int(py), PLATFORM_W, PLATFORM_H, fill=0x00FF00)
+                platform = self.lcd.draw_rect(int(px), int(py), model.platform_w, PLATFORM_H, fill=0x00FF00)
                 self.group.append(platform)
                 self.platform_shapes.append(platform)
             self.platform_shapes_initialized = True
         else:
-            # Just update positions of existing graphics - NO creation/deletion
-            for i, (px, py) in enumerate(model.platforms):
-                if i < len(self.platform_shapes):
-                    self.platform_shapes[i].x = int(px)
-                    self.platform_shapes[i].y = int(py)
+            # Check if platform width changed - need to recreate
+            if abs(model.platform_w - self.last_platform_w) >= 2:
+                # Remove old platforms
+                for shape in self.platform_shapes:
+                    self.group.remove(shape)
+                self.platform_shapes.clear()
+                # Create new ones with new width
+                for px, py in model.platforms:
+                    platform = self.lcd.draw_rect(int(px), int(py), model.platform_w, PLATFORM_H, fill=0x00FF00)
+                    self.group.append(platform)
+                    self.platform_shapes.append(platform)
+                self.last_platform_w = model.platform_w
+            else:
+                # Just update positions
+                for i, (px, py) in enumerate(model.platforms):
+                    if i < len(self.platform_shapes):
+                        self.platform_shapes[i].x = int(px)
+                        self.platform_shapes[i].y = int(py)
 
-        # Update score text only when it changes by 5+ to reduce flicker
-        score_diff = abs(model.score - self.last_displayed_score)
-        if score_diff >= 5 or model.score == 0:
-            self.last_displayed_score = model.score
-            self.score_label.text = str(model.score)
+            score_diff = abs(model.score - self.last_displayed_score)
+            if score_diff >= 5 or model.score == 0:
+                self.last_displayed_score = model.score
+                self.score_label.text = str(model.score)
 
     def slide_start_screen_up(self):
         """Slide entire loading screen up off screen over 0.5 seconds.

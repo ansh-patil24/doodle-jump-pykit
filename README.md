@@ -170,7 +170,6 @@ This project is built on the PyKit Ruler CircuitPython Module Library.
 
 ## 🚀 Future Enhancements
 
-- [x] ~~Difficulty scaling with player score~~ ✅ Implemented!
 - [ ] Different platform types (moving, breakable, springs)
 - [ ] Enemy obstacles
 - [ ] Power-ups
